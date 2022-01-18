@@ -1,0 +1,35 @@
+# Title     : TODO
+# Objective : TODO
+# Created by: dawid
+# Created on: 1/18/2022
+
+# install.packages("groupdata2")
+# install.packages("dplyr")
+# install.packages("plyr")
+
+library(plyr)
+library(groupdata2)
+library(dplyr)
+
+print(1)
+
+data <- read.csv("../data/test.csv")
+data_not_pos <- data
+
+create_anomaly_set <- function(data, percent) {
+
+  data_not_pos_cnt <- nrow(subset(data, satisfaction == "neutral or dissatisfied"))
+  anomaly_cnt <- data_not_pos_cnt * percent / (1 - percent)
+
+  data_pos_cnt <- nrow(data) - data_not_pos_cnt
+  anomaly_to_remove <- data_pos_cnt - anomaly_cnt
+  anomaly_to_remove <- as.integer(anomaly_to_remove)
+
+  print(data_pos_cnt)
+  data <- data[-sample(which(data$satisfaction=="satisfied"), anomaly_to_remove),]
+  return(data)
+}
+
+anomaly_set <- create_anomaly_set(data, 0.05)
+print(anomaly_set)
+print(count(anomaly_set, "satisfaction"))
