@@ -9,8 +9,8 @@ library(dplyr)
 library(randomForest)
 library(ggplot2)
 
-train_datadf = read.csv("/Users/robertostoja-lniski/Projekty/ZUM/zum/data/train.csv")
-test_datadf = read.csv("/Users/robertostoja-lniski/Projekty/ZUM/zum/data/test.csv")
+train_datadf = read.csv("data/train.csv")
+test_datadf = read.csv("data/test.csv")
 
 encode_ordinal <- function(x, order = unique(x)) {
   x <- as.numeric(factor(x, levels = order, exclude = NULL))
