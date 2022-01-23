@@ -45,7 +45,10 @@ create_anomaly_set <- function(data, percent) {
   return(data)
 }
 
-train_datadf <- create_anomaly_set(train_datadf, 0.05)
+print(train_datadf)
+anomaly_percent <- 0.05
+train_datadf <- create_anomaly_set(train_datadf, anomaly_percent)
+print(train_datadf)
 
 train_datadf <- preprocess_data(train_datadf)
 test_datadf <- preprocess_data(test_datadf)
@@ -63,9 +66,51 @@ model <- randomForest(train_datadf_x, train_datadf_y, xtest=test_datadf_x, ytest
 tuneRF(model)
 print("Finished")
 
+best_sample_size <- 0
+best_num_trees <- 0
+best_depth <- 0
+best_penalty_val <- 1000000
+id <- 0
 
-# isolation forest
-iforest <- isolationForest$new()
+for (grid_sample_size in c(32, 64, 128, 256, 512)) {
+  for (grid_max_depth in c(5, 6, 7, 8, 9, 10)) {
+    for (grid_num_trees in c(100, 200, 300)) {
+      
+      print(id)
+      id <- id + 1
+      # isolation forest
+      iforest <- isolationForest$new(sample_size=256, num_trees=100)
+      iforest$fit(dataset = train_datadf_x)
+      train_pred <- iforest$predict(train_datadf_x)
+      anomaly_num <- as.integer(nrow(train_pred) * anomaly_percent)
+      print(anomaly_num)
+      anomaly_boundary_id <- order(pred$anomaly_score, decreasing=TRUE)[anomaly_num]
+      anomaly_boundary <- pred[anomaly_boundary_id]$anomaly_score
+      print(anomaly_boundary)
+      train_pred$anomaly <- as.numeric((sign(train_pred$anomaly_score - anomaly_boundary) + 1) / 2)
+      train_pred$actual <- as.numeric(train_datadf_y) - 1
+      train_pred$penalty <- (train_pred$actual - train_pred$anomaly) ** 2
+      print(train_pred)
+      penalty_val <- sum(train_pred$penalty) / nrow(train_pred)
+      print(penalty_val)
+      
+      if(penalty_val < best_penalty_val) {
+        best_penalty_val <- penalty_val
+        best_sample_size <- grid_sample_size
+        best_depth <- grid_max_depth
+        best_num_trees <- grid_num_trees
+      }
+    }
+  }
+}
+
+print(penalty_val)
+print(best_sample_size)
+print(best_depth)
+print(best_num_trees)
+
+
+iforest <- isolationForest$new(sample_size=best_sample_size, num_trees=best_num_trees, max_depth=best_depth)
 iforest$fit(dataset = train_datadf_x)
 
 # predict outliers within dataset
@@ -84,6 +129,8 @@ print(comparison_df)
 
 comparison_df$actual <- test_datadf_y
 print(comparison_df)
+
+
 
 print(typeof(anomaly_scores))
 scores$actual <- test_datadf_y
