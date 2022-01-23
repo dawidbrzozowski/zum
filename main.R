@@ -3,16 +3,13 @@
 # Created by: dawid
 # Created on: 1/18/2022
 
-# install.packages("groupdata2")
-# install.packages("dplyr")
-# install.packages("plyr")
-
 library(plyr)
 library(groupdata2)
 library(dplyr)
+library(randomForest)
 
-
-datadf = read.csv("data/train.csv")
+train_datadf = read.csv("data/train.csv")
+test_datadf = read.csv("data/test.csv")
 
 encode_ordinal <- function(x, order = unique(x)) {
   x <- as.numeric(factor(x, levels = order, exclude = NULL))
@@ -27,6 +24,8 @@ preprocess_data <- function(data) {
   data[["Type.of.Travel"]] <- encode_ordinal(data[["Type.of.Travel"]])
   data[["Class"]] <- encode_ordinal(data[["Class"]], order = c("Eco", "Eco Plus", "Business"))
   data[["satisfaction"]] <- encode_ordinal(data[["satisfaction"]], order = c("neutral or dissatisfied", "satisfied"))
+  data$Arrival.Delay.in.Minutes[is.na(data$Arrival.Delay.in.Minutes)] <- 0
+  
   
   return(data)
 }
@@ -45,6 +44,20 @@ create_anomaly_set <- function(data, percent) {
   return(data)
 }
 
-data_df <- create_anomaly_set(datadf, 0.05)
+# train_datadf <- create_anomaly_set(train_datadf, 0.05)
 
-datadf <- preprocess_data(datadf)
+train_datadf <- preprocess_data(train_datadf)
+test_datadf <- preprocess_data(test_datadf)
+
+train_datadf$satisfaction <- as.factor(train_datadf$satisfaction)
+test_datadf$satisfaction <- as.factor(test_datadf$satisfaction)
+
+train_datadf_y <- train_datadf$satisfaction
+test_datadf_y <- test_datadf$satisfaction
+
+train_datadf_x <- subset(train_datadf, select=-c(satisfaction))
+test_datadf_x <- subset(test_datadf, select=-c(satisfaction))
+
+model <- randomForest(train_datadf_x, train_datadf_y, xtest=test_datadf_x, ytest=test_datadf_y)
+tuneRF(model)
+print("Finished")
