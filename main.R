@@ -7,6 +7,10 @@ library(plyr)
 library(groupdata2)
 library(dplyr)
 library(randomForest)
+library(caret)
+library(e1071)
+library(MetricsWeighted)
+library(PRROC)
 
 train_datadf = read.csv("data/train.csv")
 test_datadf = read.csv("data/test.csv")
@@ -44,7 +48,7 @@ create_anomaly_set <- function(data, percent) {
   return(data)
 }
 
-# train_datadf <- create_anomaly_set(train_datadf, 0.05)
+train_datadf <- create_anomaly_set(train_datadf, 0.05)
 
 train_datadf <- preprocess_data(train_datadf)
 test_datadf <- preprocess_data(test_datadf)
@@ -58,6 +62,27 @@ test_datadf_y <- test_datadf$satisfaction
 train_datadf_x <- subset(train_datadf, select=-c(satisfaction))
 test_datadf_x <- subset(test_datadf, select=-c(satisfaction))
 
-model <- randomForest(train_datadf_x, train_datadf_y, xtest=test_datadf_x, ytest=test_datadf_y)
-tuneRF(model)
-print("Finished")
+tc <- tune.control(cross = 5)
+n_trees <- c(200, 400, 600)
+mtries <- c(4,6,8,10)
+nodesizes <- c(1,3,5,7)
+
+
+
+# Creating model using best params for evaluation.
+model <- randomForest(
+  train_datadf_x, train_datadf_y, xtest=test_datadf_x, ytest=test_datadf_y, 
+  do.trace=TRUE,
+  mtry=10,
+  nodesize=7,
+  ntree=400
+  )
+
+roc_obj <- roc.curve(test_datadf_y, as.integer(model$test$predicted), curve=TRUE)
+roc_obj
+plot(roc_obj)
+pr_obj <- pr.curve(test_datadf_y, as.integer(model$test$predicted), curve=TRUE)
+pr_obj
+plot(pr_obj)
+
+
