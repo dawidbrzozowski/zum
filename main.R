@@ -16,12 +16,14 @@ library(ggplot2)
 train_datadf = read.csv("data/train.csv")
 test_datadf = read.csv("data/test.csv")
 
+# Encodes data to numerical values
 encode_ordinal <- function(x, order = unique(x)) {
   x <- as.numeric(factor(x, levels = order, exclude = NULL))
   x <- x - 1
   x
 }
 
+# Fills missing values, encodes variables, assings numerical values to class nad satisfaction
 preprocess_data <- function(data) {
   data <- subset(data, select=-c(X, id))
   data[["Gender"]] <- encode_ordinal(data[["Gender"]])
@@ -35,6 +37,9 @@ preprocess_data <- function(data) {
   return(data)
 }
 
+# Since provided datasets do not necessarily contain anomalies
+# we have created a function that downsamples dataset to have a given percent
+# of records that are anomalies. We reduce occurances of rows with label "satisfied"
 create_anomaly_set <- function(data, percent) {
   
   data_not_pos_cnt <- nrow(subset(data, satisfaction == "neutral or dissatisfied"))
@@ -49,7 +54,7 @@ create_anomaly_set <- function(data, percent) {
   return(data)
 }
 
-train_datadf <- create_anomaly_set(train_datadf, 0.05)
+# Creating anomaly set by downsampling
 anomaly_percent <- 0.05
 train_datadf <- create_anomaly_set(train_datadf, anomaly_percent)
 print(train_datadf)
@@ -66,6 +71,7 @@ test_datadf_y <- test_datadf$satisfaction
 train_datadf_x <- subset(train_datadf, select=-c(satisfaction))
 test_datadf_x <- subset(test_datadf, select=-c(satisfaction))
 
+# Setting possible hyperparams values
 tc <- tune.control(cross = 5)
 n_trees <- c(200, 400, 600)
 mtries <- c(4,6,8,10)
@@ -98,16 +104,19 @@ best_depth <- 0
 best_penalty_val <- 1000000
 id <- 0
 
+# Setting possible isolationForest params for custom tuning
 for (grid_sample_size in c(32, 64, 128, 256, 512)) {
   for (grid_max_depth in c(5, 6, 7, 8, 9, 10)) {
     for (grid_num_trees in c(100, 200, 300)) {
       
       print(id)
       id <- id + 1
-      # isolation forest
-      iforest <- isolationForest$new(sample_size=256, num_trees=100)
+      
+      iforest <- isolationForest$new(sample_size=grid_sample_size, num_trees=grid_num_trees, max_depth=grid_max_depth)
       iforest$fit(dataset = train_datadf_x)
       train_pred <- iforest$predict(train_datadf_x)
+      
+      # heuristic test of model quality       
       anomaly_num <- as.integer(nrow(train_pred) * anomaly_percent)
       print(anomaly_num)
       anomaly_boundary_id <- order(pred$anomaly_score, decreasing=TRUE)[anomaly_num]
@@ -120,6 +129,7 @@ for (grid_sample_size in c(32, 64, 128, 256, 512)) {
       penalty_val <- sum(train_pred$penalty) / nrow(train_pred)
       print(penalty_val)
       
+      # remember best params
       if(penalty_val < best_penalty_val) {
         best_penalty_val <- penalty_val
         best_sample_size <- grid_sample_size
@@ -129,6 +139,7 @@ for (grid_sample_size in c(32, 64, 128, 256, 512)) {
     }
   }
 }
+
 
 print(penalty_val)
 print(best_sample_size)
@@ -156,11 +167,10 @@ print(comparison_df)
 comparison_df$actual <- test_datadf_y
 print(comparison_df)
 
-
-
 print(typeof(anomaly_scores))
 scores$actual <- test_datadf_y
 
+# Present results by histogram
 hist <- comparison_df %>%
   ggplot( aes(x=anomaly_scores, fill=actual)) +
   geom_histogram( color="#e9ecef", alpha=0.6, position = 'identity') +
